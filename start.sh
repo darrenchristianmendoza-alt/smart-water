@@ -1,2 +1,2 @@
 #!/bin/bash
-exec gunicorn "app:create_app()" --bind 0.0.0.0:$PORT --workers 1 --threads 2
+exec gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --preload
