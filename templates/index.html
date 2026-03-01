@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Smart Water Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&family=Barlow+Condensed:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-left">
+    <div class="logo-mark">💧</div>
+    <div>
+      <div class="site-title">SMART WATER</div>
+      <div class="site-sub">Peacefair · ESP32 Monitor</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-pill"><span class="live-dot"></span><span id="clock">--:--:--</span></div>
+    <div class="conn-badge" id="connStatus">CONNECTING</div>
+    <!-- LLM status indicator -->
+    <div class="llm-badge" id="llmBadge" title="Ollama/Mistral connection status">🤖 --</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- KPI CARDS -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">VOLTAGE</div>
+      <div class="kpi-value" id="kpi-voltage">—</div>
+      <div class="kpi-unit">V</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="bar-v"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">CURRENT</div>
+      <div class="kpi-value" id="kpi-current">—</div>
+      <div class="kpi-unit">A</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="bar-a"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">POWER</div>
+      <div class="kpi-value" id="kpi-power">—</div>
+      <div class="kpi-unit">W</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" id="bar-w"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">ENERGY</div>
+      <div class="kpi-value" id="kpi-energy">—</div>
+      <div class="kpi-unit">kWh</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill green" id="bar-e"></div></div>
+    </div>
+    <div class="kpi-card" id="card-status">
+      <div class="kpi-label">PUMP STATUS · AVAILABILITY</div>
+      <div class="kpi-value" id="kpi-status">—</div>
+      <div class="kpi-unit" id="kpi-avail">—%</div>
+    </div>
+  </section>
+
+  <!-- DESKTOP TABS -->
+  <div class="tab-bar">
+    <button class="tab active" data-tab="live">⚡ LIVE</button>
+    <button class="tab" data-tab="persecond">PER SECOND</button>
+    <button class="tab" data-tab="daily">DAILY</button>
+    <button class="tab" data-tab="weekly">WEEKLY</button>
+    <button class="tab" data-tab="monthly">MONTHLY</button>
+  </div>
+
+  <!-- ── LIVE TAB ─────────────────────────────────────────────────────── -->
+  <div class="tab-content active" id="tab-live">
+    <div class="charts-grid">
+      <div class="chart-box"><div class="chart-title">⚡ VOLTAGE (V)</div><canvas id="chartVoltage"></canvas></div>
+      <div class="chart-box"><div class="chart-title">〜 CURRENT (A)</div><canvas id="chartCurrent"></canvas></div>
+      <div class="chart-box"><div class="chart-title">💡 POWER (W)</div><canvas id="chartPower"></canvas></div>
+      <div class="chart-box"><div class="chart-title">🔋 ENERGY (kWh)</div><canvas id="chartEnergy"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── PER SECOND TAB ────────────────────────────────────────────────── -->
+  <div class="tab-content" id="tab-persecond">
+    <div class="table-toolbar">
+      <span class="table-info" id="psInfo">Loading...</span>
+      <div class="page-controls">
+        <button class="pg-btn" id="pgPrev">◀</button>
+        <span id="pgLabel">1/1</span>
+        <button class="pg-btn" id="pgNext">▶</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th>#</th><th>TIMESTAMP</th><th>V (V)</th><th>I (A)</th><th>P (W)</th>
+          <th class="hide-mobile">E (kWh)</th><th>STATUS</th>
+          <th class="hide-mobile">FAULT</th><th class="hide-mobile">CUT</th><th>AVAIL%</th>
+        </tr></thead>
+        <tbody id="psBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── DAILY TAB ─────────────────────────────────────────────────────── -->
+  <div class="tab-content" id="tab-daily">
+    <div class="chart-box wide"><div class="chart-title">📅 DAILY ENERGY (kWh)</div><canvas id="chartDaily"></canvas></div>
+    <!-- AI Panel: Daily -->
+    <div class="ai-panel" id="aiPanelDaily">
+      <div class="ai-panel-header">
+        <span class="ai-icon">🤖</span>
+        <span class="ai-title">AI INTERPRETATION — DAILY</span>
+        <button class="ai-btn" id="btnInterpretDaily">ANALYZE LATEST DAY</button>
+      </div>
+      <div class="ai-body" id="aiBodyDaily">
+        <span class="ai-placeholder">Click to analyze the most recent daily summary with Mistral AI.</span>
+      </div>
+      <div class="ai-footer" id="aiFooterDaily"></div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th>DATE</th><th>AVG V</th><th class="hide-mobile">AVG I</th>
+          <th>ENERGY</th><th>HRS</th><th>AVAIL%</th>
+          <th class="hide-mobile">CUTS</th><th class="hide-mobile">FAULTS</th>
+          <th class="hide-mobile">SAVED</th><th>AI</th>
+        </tr></thead>
+        <tbody id="dailyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── WEEKLY TAB ─────────────────────────────────────────────────────── -->
+  <div class="tab-content" id="tab-weekly">
+    <div class="chart-box wide"><div class="chart-title">📆 WEEKLY AVAILABILITY (%)</div><canvas id="chartWeekly"></canvas></div>
+    <!-- AI Panel: Weekly -->
+    <div class="ai-panel" id="aiPanelWeekly">
+      <div class="ai-panel-header">
+        <span class="ai-icon">🤖</span>
+        <span class="ai-title">AI INTERPRETATION — WEEKLY</span>
+        <button class="ai-btn" id="btnInterpretWeekly">ANALYZE LATEST WEEK</button>
+      </div>
+      <div class="ai-body" id="aiBodyWeekly">
+        <span class="ai-placeholder">Click to analyze the most recent weekly summary with Mistral AI.</span>
+      </div>
+      <div class="ai-footer" id="aiFooterWeekly"></div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th>WEEK</th><th class="hide-mobile">PERIOD</th><th>AVG V</th>
+          <th>ENERGY</th><th>HRS</th><th>AVAIL%</th>
+          <th class="hide-mobile">CUTS</th><th class="hide-mobile">FAULTS</th><th>AI</th>
+        </tr></thead>
+        <tbody id="weeklyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── MONTHLY TAB ────────────────────────────────────────────────────── -->
+  <div class="tab-content" id="tab-monthly">
+    <div class="chart-box wide"><div class="chart-title">🗓 MONTHLY PUMP HOURS</div><canvas id="chartMonthly"></canvas></div>
+    <!-- AI Panel: Monthly -->
+    <div class="ai-panel" id="aiPanelMonthly">
+      <div class="ai-panel-header">
+        <span class="ai-icon">🤖</span>
+        <span class="ai-title">AI INTERPRETATION — MONTHLY</span>
+        <button class="ai-btn" id="btnInterpretMonthly">ANALYZE LATEST MONTH</button>
+      </div>
+      <div class="ai-body" id="aiBodyMonthly">
+        <span class="ai-placeholder">Click to analyze the most recent monthly summary with Mistral AI.</span>
+      </div>
+      <div class="ai-footer" id="aiFooterMonthly"></div>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr>
+          <th>MONTH</th><th class="hide-mobile">DAYS</th><th>AVG V</th>
+          <th>ENERGY</th><th>HRS</th><th>AVAIL%</th>
+          <th class="hide-mobile">CUTS</th><th class="hide-mobile">FAULTS</th><th>AI</th>
+        </tr></thead>
+        <tbody id="monthlyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- BOTTOM NAV (mobile) -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-tab="live"><span class="nav-icon">⚡</span>LIVE</button>
+  <button class="nav-btn" data-tab="persecond"><span class="nav-icon">📋</span>LOG</button>
+  <button class="nav-btn" data-tab="daily"><span class="nav-icon">📅</span>DAILY</button>
+  <button class="nav-btn" data-tab="weekly"><span class="nav-icon">📆</span>WEEKLY</button>
+  <button class="nav-btn" data-tab="monthly"><span class="nav-icon">🗓</span>MONTHLY</button>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ROW AI MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="ai-icon">🤖</span>
+      <span id="modalTitle">AI ANALYSIS</span>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-body" id="modalBody">
+      <div class="ai-spinner"><div class="spinner"></div> Mistral is analyzing...</div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
