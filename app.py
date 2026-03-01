@@ -2,7 +2,6 @@ from flask import Flask
 from api.routes import api_bp
 from database.db import init_db, seed_historical_data
 from collector.generator import DataGenerator
-import threading
 
 _generator = None
 
@@ -11,16 +10,18 @@ def create_app():
 
     app = Flask(__name__)
     app.register_blueprint(api_bp)
-
-    # Start generator inside Flask (works on Render)
-    init_db()
-    seed_historical_data()
-
-    if _generator is None:
-        _generator = DataGenerator()
-        _generator.start()
-
     return app
+
+# This runs at module import time — guaranteed to execute
+print("[STARTUP] Initializing...")
+init_db()
+seed_historical_data()
+
+if _generator is None:
+    _generator = DataGenerator()
+    _generator.start()
+
+print("[STARTUP] Done — app ready")
 
 app = create_app()
 
